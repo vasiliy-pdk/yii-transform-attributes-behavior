@@ -72,3 +72,10 @@ Also, in behaviors() and  attributeTransformations() can specify a separate tran
               )
               );
 ~~~
+
+Distincts of my fork:
+------------
+
+* It supported by PHP 5.3.x
+* Default convertors was fixed
+* Now we can access unserialized attribute value during saving by call *getUnserializedAttr($attrName)* 
