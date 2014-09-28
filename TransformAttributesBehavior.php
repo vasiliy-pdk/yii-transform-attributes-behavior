@@ -3,22 +3,24 @@
  * TransformAttributesBehavior class file.
  *
  * @author Annenkov Yaroslav <ya@annenkov.ru>
- * @link https://github.com/Yannn/transform-attributes-behavior
+ * @author Vasiliy Pedak <truvazia@gmail.com>
+ * @link https://github.com/vasiliy-pdk/transform-attributes-behavior
  */
 
 /**
- * Behavior for Yii1.x CActiveRecord
+ * Behavior for Yii 1.x CActiveRecord
  * Transform values of attributes before saving to DB and after reading from DB.
- *
+ * 
  * @method CActiveRecord getOwner()
- * @version 0.1
+ * @version 0.1.1
  */
 class TransformAttributesBehavior extends CActiveRecordBehavior
 {
-    private $_backupAttributes = [];
+    private $_backupAttributes = array();
+    private $_saving = false;
     public $callbackToDb;
     public $callbackFromDb;
-    public $transformations = [];
+    public $transformations = array();
 
     public function events()
     {
@@ -33,7 +35,10 @@ class TransformAttributesBehavior extends CActiveRecordBehavior
     {
         // default callback function for save to db
         $this->callbackToDb = function ($model, $attributeName) {
-            return is_string($model->$attributeName) ? $model->$attributeName : CJSON::encode($model->$attributeName);
+            if (empty($model->$attributeName) || is_string($model->$attributeName))
+                return $model->$attributeName;
+            else
+                return CJSON::encode($model->$attributeName);
         };
         // default callback function for read from db
         $this->callbackFromDb = function ($model, $attributeName) {
@@ -46,6 +51,7 @@ class TransformAttributesBehavior extends CActiveRecordBehavior
      */
     public function beforeSave($event)
     {
+        $this->_saving = true;
         $this->_convertAttributesToDB();
         parent::beforeSave($event);
     }
@@ -60,8 +66,9 @@ class TransformAttributesBehavior extends CActiveRecordBehavior
             foreach($this->_backupAttributes as $name => $value) {
                 $this->getOwner()->$name = $value;
             }
-            $this->_backupAttributes = [];
+            $this->_backupAttributes = array();
         }
+        $this->_saving = false;
         parent::afterSave($event);
     }
 
@@ -72,6 +79,17 @@ class TransformAttributesBehavior extends CActiveRecordBehavior
     {
         $this->_convertAttributesFromDB();
         parent::afterFind($event);
+    }
+
+    public function getUnserializedAttr($attr)
+    {
+        if(!in_array($attr, $this->transformations))
+            return null;
+        
+        if($this->_saving)
+            return $this->_backupAttributes[$attr];
+        
+        return $this->getOwner()->$attr;
     }
 
     /**
@@ -131,7 +149,7 @@ class TransformAttributesBehavior extends CActiveRecordBehavior
         }
         foreach($transformations as $key => $value) {
             if(is_numeric($key)) {
-                $transformations[$value] = [];
+                $transformations[$value] = array();
                 unset($transformations[$key]);
             }
         }
